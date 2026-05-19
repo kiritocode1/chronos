@@ -15,6 +15,9 @@ import { Auth, AuthLive } from "./auth/service.ts"
 import { DbLive, SqlLive } from "./db/client.ts"
 import { jobsRoutes } from "./jobs/http.ts"
 import { JobsRepoLive } from "./jobs/repo.ts"
+import { notificationsRoutes } from "./notifications/http.ts"
+import { NotificationsRepoLive } from "./notifications/repo.ts"
+import { runsRoutes } from "./runs/http.ts"
 import { JobRunsRepoLive } from "./runs/repo.ts"
 import { tickerLoop } from "./ticker/ticker.ts"
 import { BashJob, executeBashJob } from "./workflows/bash-job.ts"
@@ -47,7 +50,11 @@ const baseRoutes = HttpRouter.empty.pipe(
   ),
 )
 
-const router = baseRoutes.pipe(HttpRouter.concat(jobsRoutes))
+const router = baseRoutes.pipe(
+  HttpRouter.concat(jobsRoutes),
+  HttpRouter.concat(runsRoutes),
+  HttpRouter.concat(notificationsRoutes),
+)
 
 const ServerLive = HttpServer.serve(router).pipe(
   Layer.provide(
@@ -63,6 +70,7 @@ const AppLive = Layer.mergeAll(
   AuthLive,
   JobsRepoLive,
   JobRunsRepoLive,
+  NotificationsRepoLive,
   ClusterLive,
 ).pipe(Layer.provideMerge(DbLive), Layer.provideMerge(SqlLive))
 

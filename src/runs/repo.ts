@@ -1,9 +1,10 @@
-import { eq, sql } from "drizzle-orm"
+import { and, desc, eq, sql } from "drizzle-orm"
 import { EffectDrizzleQueryError } from "drizzle-orm/effect-core/errors"
-import { Context, Effect, Layer } from "effect"
+import { Context, Effect, Layer, ParseResult, Schema } from "effect"
 
 import { Db } from "../db/client.ts"
-import { jobRuns } from "../db/schema.ts"
+import { jobRuns, jobs } from "../db/schema.ts"
+import { JobRun } from "./schema.ts"
 
 export interface WebhookResult {
   readonly responseStatus: number
@@ -43,12 +44,29 @@ export interface JobRunsRepoApi {
     runId: string,
     failure: FinalizeFailure,
   ) => Effect.Effect<void, EffectDrizzleQueryError>
+  readonly listByJob: (
+    jobId: string,
+    userId: string,
+    opts: { readonly limit: number; readonly offset: number },
+  ) => Effect.Effect<
+    ReadonlyArray<JobRun>,
+    EffectDrizzleQueryError | ParseResult.ParseError
+  >
+  readonly getByIdScoped: (
+    runId: string,
+    userId: string,
+  ) => Effect.Effect<
+    JobRun | null,
+    EffectDrizzleQueryError | ParseResult.ParseError
+  >
 }
 
 export class JobRunsRepo extends Context.Tag("JobRunsRepo")<
   JobRunsRepo,
   JobRunsRepoApi
 >() {}
+
+const decodeRun = (row: unknown) => Schema.decodeUnknown(JobRun)(row)
 
 export const JobRunsRepoLive = Layer.effect(
   JobRunsRepo,
@@ -112,6 +130,31 @@ export const JobRunsRepoLive = Layer.effect(
           })
           .where(eq(jobRuns.id, runId))
           .pipe(Effect.asVoid),
+
+      listByJob: (jobId, userId, opts) =>
+        Effect.gen(function* () {
+          const rows = yield* db
+            .select({ run: jobRuns })
+            .from(jobRuns)
+            .innerJoin(jobs, eq(jobRuns.jobId, jobs.id))
+            .where(and(eq(jobRuns.jobId, jobId), eq(jobs.userId, userId)))
+            .orderBy(desc(jobRuns.startedAt))
+            .limit(opts.limit)
+            .offset(opts.offset)
+          return yield* Effect.forEach(rows, (r) => decodeRun(r.run))
+        }),
+
+      getByIdScoped: (runId, userId) =>
+        Effect.gen(function* () {
+          const rows = yield* db
+            .select({ run: jobRuns })
+            .from(jobRuns)
+            .innerJoin(jobs, eq(jobRuns.jobId, jobs.id))
+            .where(and(eq(jobRuns.id, runId), eq(jobs.userId, userId)))
+            .limit(1)
+          const first = rows[0]
+          return first ? yield* decodeRun(first.run) : null
+        }),
     }
   }),
 )

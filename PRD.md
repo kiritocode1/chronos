@@ -172,9 +172,9 @@ For each claimed job:
 - **WebhookJob**: HTTP request with timeout → if 2xx mark run succeeded, else fail
 - **BashJob**: `just-bash` exec with timeout + memory cap → capture stdout/stderr/exit, fail if exit ≠ 0
 
-**Retry**: Effect `Schedule.exponential().pipe(Schedule.jittered, Schedule.compose(Schedule.recurs(max_attempts - 1)))`. Each attempt writes a new `job_runs` row.
+**Retry**: Effect `Schedule.exponential(baseMs)` capped at `maxMs`, optionally jittered, intersected with `Schedule.recurs(maxAttempts - 1)`. Retries happen **internally** within a single workflow execution — one `job_runs` row per execution captures the final outcome (success or final failure) and total elapsed time. Per-attempt history is not persisted in v1.
 
-**On terminal failure** (all attempts exhausted): insert a `notifications` row pointing at the last failing `run_id`.
+**On terminal failure** (all attempts exhausted): insert a `notifications` row pointing at the failing `run_id`.
 
 ## 7. UI
 

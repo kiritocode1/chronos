@@ -1,9 +1,11 @@
 import * as Activity from "@effect/workflow/Activity"
 import * as Workflow from "@effect/workflow/Workflow"
-import { Effect, Schema } from "effect"
+import { Duration, Effect, Schedule, Schema } from "effect"
 import { Bash } from "just-bash"
 
+import { NotificationsRepo } from "../notifications/repo.ts"
 import { JobRunsRepo } from "../runs/repo.ts"
+import { RetryPolicy } from "../jobs/schema.ts"
 
 const truncate = (s: string, max = 65536) =>
   s.length > max ? s.slice(0, max) : s
@@ -26,10 +28,12 @@ export const BashJob = Workflow.make({
   payload: {
     runId: Schema.String,
     jobId: Schema.String,
+    userId: Schema.String,
     script: Schema.String,
     timeoutMs: Schema.Number,
     env: Schema.Record({ key: Schema.String, value: Schema.String }),
     allowedUrls: Schema.Array(Schema.String),
+    retryPolicy: RetryPolicy,
   },
   success: BashSuccess,
   error: BashFailure,
@@ -38,12 +42,20 @@ export const BashJob = Workflow.make({
 
 export type BashPayloadT = typeof BashJob.payloadSchema.Type
 
+const buildRetrySchedule = (p: typeof RetryPolicy.Type) => {
+  const base = Schedule.exponential(Duration.millis(p.baseMs))
+  const capped = Schedule.either(base, Schedule.spaced(Duration.millis(p.maxMs)))
+  const withJitter = p.jitter ? Schedule.jittered(capped) : capped
+  return Schedule.intersect(withJitter, Schedule.recurs(p.maxAttempts - 1))
+}
+
 export const executeBashJob = (
   payload: BashPayloadT,
   _executionId: string,
 ) =>
   Effect.gen(function* () {
-    const repo = yield* JobRunsRepo
+    const runs = yield* JobRunsRepo
+    const notifications = yield* NotificationsRepo
 
     const bashActivity = Activity.make({
       name: "BashExec",
@@ -85,10 +97,14 @@ export const executeBashJob = (
       }),
     })
 
-    return yield* bashActivity.pipe(
+    const withRetries = bashActivity.pipe(
+      Effect.retry(buildRetrySchedule(payload.retryPolicy)),
+    )
+
+    return yield* withRetries.pipe(
       Effect.tap((ok) =>
         Effect.orDie(
-          repo.finalizeBashSuccess(payload.runId, {
+          runs.finalizeBashSuccess(payload.runId, {
             stdout: ok.stdout,
             stderr: ok.stderr,
             exitCode: ok.exitCode,
@@ -96,14 +112,23 @@ export const executeBashJob = (
         ),
       ),
       Effect.tapError((err) =>
-        Effect.orDie(
-          repo.finalizeFailure(payload.runId, {
-            errorMessage: err.reason,
-            stdout: err.stdout,
-            stderr: err.stderr,
-            exitCode: err.exitCode,
-          }),
-        ),
+        Effect.gen(function* () {
+          yield* Effect.orDie(
+            runs.finalizeFailure(payload.runId, {
+              errorMessage: err.reason,
+              stdout: err.stdout,
+              stderr: err.stderr,
+              exitCode: err.exitCode,
+            }),
+          )
+          yield* Effect.orDie(
+            notifications.insertFailure({
+              userId: payload.userId,
+              jobId: payload.jobId,
+              runId: payload.runId,
+            }),
+          )
+        }),
       ),
     )
   })
