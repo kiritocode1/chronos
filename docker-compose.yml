@@ -1,0 +1,21 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: chronos-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-chronos}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-chronos}
+      POSTGRES_DB: ${POSTGRES_DB:-chronos}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - chronos-pg-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-chronos} -d ${POSTGRES_DB:-chronos}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  chronos-pg-data:

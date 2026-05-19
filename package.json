@@ -1,0 +1,40 @@
+{
+  "name": "chronos",
+  "module": "src/main.ts",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "prepare": "effect-language-service patch",
+    "typecheck": "tsc --noEmit",
+    "dev": "bun --watch src/main.ts",
+    "start": "bun src/main.ts",
+    "db:up": "docker compose up -d postgres",
+    "db:down": "docker compose down",
+    "db:logs": "docker compose logs -f postgres",
+    "db:push": "drizzle-kit push",
+    "db:generate": "drizzle-kit generate",
+    "db:studio": "drizzle-kit studio"
+  },
+  "devDependencies": {
+    "@effect/language-service": "^0.86.1",
+    "@types/bun": "latest",
+    "@types/pg": "^8.20.0",
+    "drizzle-kit": "^1.0.0-beta.22"
+  },
+  "peerDependencies": {
+    "typescript": "^5"
+  },
+  "dependencies": {
+    "@effect/cluster": "^0.58.2",
+    "@effect/platform": "^0.96.1",
+    "@effect/platform-bun": "^0.89.0",
+    "@effect/sql": "^0.51.1",
+    "@effect/sql-pg": "^0.52.1",
+    "@effect/workflow": "^0.18.1",
+    "better-auth": "^1.6.11",
+    "croner": "^10.0.1",
+    "drizzle-orm": "^1.0.0-beta.22",
+    "effect": "^3.21.2",
+    "just-bash": "^3.0.1"
+  }
+}
