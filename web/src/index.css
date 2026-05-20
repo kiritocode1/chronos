@@ -1,11 +1,51 @@
 @import "tailwindcss";
 
+@theme {
+  --color-bg: #000;
+  --color-surface: #0a0a0a;
+  --color-border: rgba(255, 255, 255, 0.08);
+  --color-border-strong: rgba(255, 255, 255, 0.14);
+  --color-fg: #fafafa;
+  --color-fg-muted: #a1a1aa;
+  --color-fg-subtle: #71717a;
+  --font-sans:
+    ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Inter",
+    "Segoe UI", Roboto, sans-serif;
+  --font-mono:
+    ui-monospace, "SF Mono", Menlo, "JetBrains Mono", "Cascadia Code",
+    monospace;
+}
+
 html,
 body,
 #root {
   height: 100%;
   margin: 0;
-  background: #0b0d12;
-  color: #d1d5db;
-  font-family: ui-sans-serif, system-ui, sans-serif;
+  background: var(--color-bg);
+  color: var(--color-fg);
+  font-family: var(--font-sans);
+  font-feature-settings: "ss01", "ss03", "cv11";
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  letter-spacing: -0.005em;
+}
+
+::selection {
+  background: rgba(255, 255, 255, 0.16);
+}
+
+/* Cleaner default focus rings */
+:focus-visible {
+  outline: 1px solid rgba(255, 255, 255, 0.4);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* form controls inherit color */
+input,
+select,
+textarea,
+button {
+  font: inherit;
+  letter-spacing: inherit;
 }

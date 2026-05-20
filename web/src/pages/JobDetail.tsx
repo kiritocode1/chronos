@@ -8,12 +8,36 @@ import { api, type JobRun } from "../lib/api"
 const fmt = (s: string | null) =>
   s ? new Date(s).toLocaleString() : "—"
 
-const runStatusColor = (s: JobRun["status"]) =>
-  s === "succeeded"
-    ? "bg-green-900 text-green-300"
-    : s === "running"
-      ? "bg-blue-900 text-blue-300"
-      : "bg-red-900 text-red-300"
+const runDot = (s: JobRun["status"]) => {
+  const color =
+    s === "succeeded"
+      ? "bg-emerald-500"
+      : s === "running"
+        ? "bg-blue-500 animate-pulse"
+        : "bg-red-500"
+  return <span className={`h-1.5 w-1.5 rounded-full ${color}`} />
+}
+
+const Section = ({
+  title,
+  children,
+}: {
+  title: string
+  children: React.ReactNode
+}) => (
+  <section>
+    <h2 className="mb-3 text-xs font-medium uppercase tracking-wider text-zinc-500">
+      {title}
+    </h2>
+    {children}
+  </section>
+)
+
+const Tag = ({ children }: { children: React.ReactNode }) => (
+  <span className="rounded-md border border-white/[0.06] bg-white/[0.03] px-2 py-0.5 text-xs text-zinc-300">
+    {children}
+  </span>
+)
 
 export function JobDetailPage() {
   const { id } = useParams<{ id: string }>()
@@ -24,6 +48,7 @@ export function JobDetailPage() {
     queryKey: ["job", id],
     queryFn: () => api.getJob(id!),
     enabled: !!id,
+    refetchInterval: 5_000,
   })
 
   const { data: runs } = useQuery({
@@ -52,61 +77,60 @@ export function JobDetailPage() {
     },
   })
 
-  if (!job) return <div className="text-gray-400">loading…</div>
+  if (!job) return <div className="text-sm text-zinc-500">loading…</div>
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-start justify-between">
+    <div className="space-y-10">
+      <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <Link
             to="/jobs"
-            className="text-xs text-gray-500 hover:text-gray-300"
+            className="text-xs text-zinc-500 hover:text-zinc-300"
           >
             ← Jobs
           </Link>
-          <h1 className="mt-1 text-xl font-semibold text-white">
+          <h1 className="mt-2 text-2xl font-semibold tracking-tight text-white">
             {job.name}
           </h1>
-          <div className="mt-2 flex flex-wrap gap-2 text-xs text-gray-400">
-            <span className="rounded bg-gray-800 px-2 py-0.5">
-              {job.mode}
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            <Tag>{job.mode}</Tag>
+            <Tag>{job.status}</Tag>
+            <span className="text-xs text-zinc-500">
+              next: {fmt(job.nextRunAt)}
             </span>
-            <span className="rounded bg-gray-800 px-2 py-0.5">
-              {job.status}
-            </span>
-            <span>next: {fmt(job.nextRunAt)}</span>
           </div>
         </div>
         <div className="flex gap-2">
           <button
             onClick={() => runNow.mutate()}
             disabled={runNow.isPending}
-            className="rounded bg-purple-600 px-3 py-1.5 text-sm text-white hover:bg-purple-700 disabled:opacity-50"
+            className="rounded-md bg-white px-3 py-1.5 text-sm font-medium text-black transition-colors hover:bg-zinc-200 disabled:opacity-50"
           >
             Run now
           </button>
-          {job.status === "active" ? (
+          {job.status === "active" && (
             <button
               onClick={() => togglePause.mutate("paused")}
-              className="rounded border border-gray-700 px-3 py-1.5 text-sm text-gray-300 hover:bg-gray-800"
+              className="rounded-md border border-white/[0.08] px-3 py-1.5 text-sm text-zinc-300 hover:bg-white/[0.04]"
             >
               Pause
             </button>
-          ) : job.status === "paused" ? (
+          )}
+          {job.status === "paused" && (
             <button
               onClick={() => togglePause.mutate("active")}
-              className="rounded border border-gray-700 px-3 py-1.5 text-sm text-gray-300 hover:bg-gray-800"
+              className="rounded-md border border-white/[0.08] px-3 py-1.5 text-sm text-zinc-300 hover:bg-white/[0.04]"
             >
               Resume
             </button>
-          ) : null}
+          )}
           <button
             onClick={() => {
               if (confirm(`Delete '${job.name}'? This cannot be undone.`)) {
                 del.mutate()
               }
             }}
-            className="rounded border border-red-900 px-3 py-1.5 text-sm text-red-400 hover:bg-red-950"
+            className="rounded-md border border-white/[0.08] px-3 py-1.5 text-sm text-red-400 hover:bg-red-500/[0.08]"
           >
             Delete
           </button>
@@ -114,97 +138,84 @@ export function JobDetailPage() {
       </div>
 
       {job.cron && (
-        <section>
-          <h2 className="mb-2 text-sm font-medium uppercase tracking-wider text-gray-500">
-            Schedule
-          </h2>
+        <Section title="Schedule">
           <CronSchedule
             title={job.cron}
             expression={job.cron}
             showNextRuns={5}
           />
-        </section>
+        </Section>
       )}
 
-      <section>
-        <h2 className="mb-2 text-sm font-medium uppercase tracking-wider text-gray-500">
-          Payload
-        </h2>
+      <Section title="Payload">
         <JsonViewer
           data={job.payload as never}
           rootName="payload"
           defaultExpanded={true}
         />
-      </section>
+      </Section>
 
-      <section>
-        <h2 className="mb-2 text-sm font-medium uppercase tracking-wider text-gray-500">
-          Retry policy
-        </h2>
+      <Section title="Retry policy">
         <JsonViewer
           data={job.retryPolicy as never}
           rootName="retryPolicy"
         />
-      </section>
+      </Section>
 
-      <section>
-        <h2 className="mb-2 text-sm font-medium uppercase tracking-wider text-gray-500">
-          Runs
-        </h2>
+      <Section title="Runs">
         {!runs || runs.runs.length === 0 ? (
-          <div className="rounded border border-gray-800 bg-gray-900 p-4 text-center text-sm text-gray-500">
-            No runs yet.
+          <div className="rounded-xl border border-white/[0.06] bg-zinc-950 p-6 text-center text-sm text-zinc-500">
+            No runs yet. The ticker checks every second.
           </div>
         ) : (
-          <table className="w-full overflow-hidden rounded border border-gray-800 bg-gray-900 text-left text-sm">
-            <thead className="bg-gray-950 text-gray-400">
-              <tr>
-                <th className="px-3 py-2">Status</th>
-                <th className="px-3 py-2">Started</th>
-                <th className="px-3 py-2">Finished</th>
-                <th className="px-3 py-2">Outcome</th>
-              </tr>
-            </thead>
-            <tbody>
-              {runs.runs.map((r) => {
-                const outcome =
-                  r.errorMessage ??
-                  (r.responseStatus !== null
-                    ? `HTTP ${r.responseStatus}`
-                    : r.exitCode !== null
-                      ? `exit ${r.exitCode}`
-                      : "—")
-                return (
-                  <tr
-                    key={r.id}
-                    className="border-t border-gray-800 hover:bg-gray-800"
-                  >
-                    <td className="px-3 py-2">
-                      <span
-                        className={`rounded px-2 py-0.5 text-xs ${runStatusColor(r.status)}`}
-                      >
-                        {r.status}
-                      </span>
-                    </td>
-                    <td className="px-3 py-2 text-gray-400">
-                      <Link
-                        to={`/runs/${r.id}`}
-                        className="hover:underline"
-                      >
+          <div className="overflow-hidden rounded-xl border border-white/[0.06]">
+            <table className="w-full text-left text-sm">
+              <thead className="bg-white/[0.02] text-xs uppercase tracking-wide text-zinc-500">
+                <tr>
+                  <th className="px-4 py-2.5 font-medium">Status</th>
+                  <th className="px-4 py-2.5 font-medium">Started</th>
+                  <th className="px-4 py-2.5 font-medium">Finished</th>
+                  <th className="px-4 py-2.5 font-medium">Outcome</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-white/[0.04]">
+                {runs.runs.map((r) => {
+                  const outcome =
+                    r.errorMessage ??
+                    (r.responseStatus !== null
+                      ? `HTTP ${r.responseStatus}`
+                      : r.exitCode !== null
+                        ? `exit ${r.exitCode}`
+                        : "—")
+                  return (
+                    <tr
+                      key={r.id}
+                      onClick={() => navigate(`/runs/${r.id}`)}
+                      className="cursor-pointer transition-colors hover:bg-white/[0.02]"
+                    >
+                      <td className="px-4 py-3">
+                        <span className="inline-flex items-center gap-1.5 text-xs text-zinc-300">
+                          {runDot(r.status)}
+                          {r.status}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-xs text-zinc-400">
                         {fmt(r.startedAt)}
-                      </Link>
-                    </td>
-                    <td className="px-3 py-2 text-gray-400">
-                      {fmt(r.finishedAt)}
-                    </td>
-                    <td className="px-3 py-2 text-gray-300">{outcome}</td>
-                  </tr>
-                )
-              })}
-            </tbody>
-          </table>
+                      </td>
+                      <td className="px-4 py-3 text-xs text-zinc-400">
+                        {fmt(r.finishedAt)}
+                      </td>
+                      <td className="px-4 py-3 text-xs text-zinc-300">
+                        {outcome}
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
         )}
-      </section>
+      </Section>
     </div>
   )
 }

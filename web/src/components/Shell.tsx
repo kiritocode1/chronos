@@ -1,8 +1,15 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { useState, type ReactNode } from "react"
-import { Link, useNavigate } from "react-router-dom"
+import { Link, NavLink, useNavigate } from "react-router-dom"
 
 import { api, type Me } from "../lib/api"
+
+const navLink = ({ isActive }: { isActive: boolean }) =>
+  `text-sm transition-colors ${
+    isActive
+      ? "text-white"
+      : "text-zinc-500 hover:text-white"
+  }`
 
 export function Shell({
   user,
@@ -45,103 +52,119 @@ export function Shell({
 
   return (
     <div className="min-h-full">
-      <header className="border-b border-gray-800 bg-gray-950">
+      <header className="sticky top-0 z-20 border-b border-white/[0.06] bg-black/80 backdrop-blur">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-3">
-          <Link to="/jobs" className="text-lg font-semibold text-white">
-            Chronos
-          </Link>
-          <nav className="flex items-center gap-4 text-sm">
-            <Link to="/jobs" className="text-gray-300 hover:text-white">
-              Jobs
+          <div className="flex items-center gap-6">
+            <Link
+              to="/jobs"
+              className="text-sm font-semibold tracking-tight text-white"
+            >
+              Chronos
             </Link>
-            <Link to="/api-ref" className="text-gray-300 hover:text-white">
-              API
-            </Link>
+            <nav className="flex items-center gap-5">
+              <NavLink to="/jobs" className={navLink}>
+                Jobs
+              </NavLink>
+              <NavLink to="/api-ref" className={navLink}>
+                API
+              </NavLink>
+            </nav>
+          </div>
+          <div className="flex items-center gap-3">
             <Link
               to="/jobs/new"
-              className="rounded bg-purple-600 px-3 py-1 text-white hover:bg-purple-700"
+              className="rounded-md bg-white px-3 py-1 text-sm font-medium text-black transition-colors hover:bg-zinc-200"
             >
               New job
             </Link>
             <div className="relative">
               <button
                 onClick={() => setShowNotifs((s) => !s)}
-                className="relative rounded px-2 py-1 text-gray-300 hover:bg-gray-800 hover:text-white"
+                className="relative rounded-md px-2 py-1 text-sm text-zinc-400 transition-colors hover:bg-white/[0.04] hover:text-white"
               >
                 Alerts
                 {unseen && unseen.count > 0 ? (
-                  <span className="absolute -right-1 -top-1 rounded-full bg-red-500 px-1.5 text-xs text-white">
+                  <span className="ml-1 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500/90 px-1 text-[10px] font-medium text-white">
                     {unseen.count}
                   </span>
                 ) : null}
               </button>
               {showNotifs && (
-                <div className="absolute right-0 z-10 mt-2 w-96 rounded-lg border border-gray-700 bg-gray-900 shadow-xl">
+                <div className="absolute right-0 z-30 mt-2 w-96 overflow-hidden rounded-lg border border-white/[0.08] bg-zinc-950 shadow-2xl">
                   <div className="max-h-96 overflow-y-auto">
                     {!notifs || notifs.notifications.length === 0 ? (
-                      <div className="p-4 text-sm text-gray-500">
-                        No notifications.
+                      <div className="p-5 text-center text-sm text-zinc-500">
+                        No notifications
                       </div>
                     ) : (
-                      notifs.notifications.map((n) => (
-                        <div
-                          key={n.id}
-                          className={`flex items-start justify-between border-b border-gray-800 px-4 py-3 text-sm ${
-                            n.seenAt ? "opacity-60" : ""
-                          }`}
-                        >
-                          <div className="min-w-0 flex-1">
-                            <div className="text-red-400">Job failure</div>
-                            <Link
-                              to={`/jobs/${n.jobId}`}
-                              onClick={() => setShowNotifs(false)}
-                              className="text-xs text-gray-400 underline"
-                            >
-                              {n.jobId.slice(0, 8)}
-                            </Link>
-                            {n.runId && (
-                              <>
-                                {" · "}
+                      <ul className="divide-y divide-white/[0.06]">
+                        {notifs.notifications.map((n) => (
+                          <li
+                            key={n.id}
+                            className={`flex items-start justify-between px-4 py-3 text-sm transition-colors hover:bg-white/[0.03] ${
+                              n.seenAt ? "opacity-50" : ""
+                            }`}
+                          >
+                            <div className="min-w-0 flex-1 pr-3">
+                              <div className="flex items-center gap-2 text-white">
+                                <span className="h-1.5 w-1.5 rounded-full bg-red-500" />
+                                Job failure
+                              </div>
+                              <div className="mt-1 flex gap-2 text-xs text-zinc-500">
                                 <Link
-                                  to={`/runs/${n.runId}`}
+                                  to={`/jobs/${n.jobId}`}
                                   onClick={() => setShowNotifs(false)}
-                                  className="text-xs text-gray-400 underline"
+                                  className="hover:text-zinc-300"
                                 >
-                                  view run
+                                  job
                                 </Link>
-                              </>
-                            )}
-                            <div className="text-xs text-gray-500">
-                              {new Date(n.createdAt).toLocaleString()}
+                                {n.runId && (
+                                  <>
+                                    <span>·</span>
+                                    <Link
+                                      to={`/runs/${n.runId}`}
+                                      onClick={() => setShowNotifs(false)}
+                                      className="hover:text-zinc-300"
+                                    >
+                                      run
+                                    </Link>
+                                  </>
+                                )}
+                                <span>·</span>
+                                <span>
+                                  {new Date(n.createdAt).toLocaleString()}
+                                </span>
+                              </div>
                             </div>
-                          </div>
-                          {!n.seenAt && (
-                            <button
-                              onClick={() => markSeen.mutate(n.id)}
-                              className="ml-2 text-xs text-gray-400 hover:text-white"
-                            >
-                              mark read
-                            </button>
-                          )}
-                        </div>
-                      ))
+                            {!n.seenAt && (
+                              <button
+                                onClick={() => markSeen.mutate(n.id)}
+                                className="shrink-0 text-xs text-zinc-500 hover:text-white"
+                              >
+                                mark read
+                              </button>
+                            )}
+                          </li>
+                        ))}
+                      </ul>
                     )}
                   </div>
                 </div>
               )}
             </div>
-            <span className="text-gray-500">|</span>
-            <span className="text-gray-400">{user.email}</span>
-            <button
-              onClick={() => signOutM.mutate()}
-              className="text-gray-400 hover:text-white"
-            >
-              Sign out
-            </button>
-          </nav>
+            <div className="ml-1 flex items-center gap-3 border-l border-white/[0.06] pl-3 text-sm">
+              <span className="text-zinc-500">{user.email}</span>
+              <button
+                onClick={() => signOutM.mutate()}
+                className="text-zinc-500 hover:text-white"
+              >
+                Sign out
+              </button>
+            </div>
+          </div>
         </div>
       </header>
-      <main className="mx-auto max-w-6xl px-6 py-6">{children}</main>
+      <main className="mx-auto max-w-6xl px-6 py-8">{children}</main>
     </div>
   )
 }

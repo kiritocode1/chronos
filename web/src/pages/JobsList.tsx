@@ -1,83 +1,97 @@
 import { useQuery } from "@tanstack/react-query"
-import { Link } from "react-router-dom"
+import { Link, useNavigate } from "react-router-dom"
 
 import { api, type Job } from "../lib/api"
 
-const statusColor = (s: Job["status"]) =>
-  s === "active"
-    ? "bg-green-900 text-green-300"
-    : s === "paused"
-      ? "bg-yellow-900 text-yellow-300"
-      : s === "completed"
-        ? "bg-gray-800 text-gray-400"
-        : "bg-red-900 text-red-300"
+const statusDot = (s: Job["status"]) => {
+  const color =
+    s === "active"
+      ? "bg-emerald-500"
+      : s === "paused"
+        ? "bg-amber-500"
+        : s === "completed"
+          ? "bg-zinc-500"
+          : "bg-red-500"
+  return <span className={`h-1.5 w-1.5 rounded-full ${color}`} />
+}
 
 const fmt = (s: string | null) =>
   s ? new Date(s).toLocaleString() : "—"
 
 export function JobsListPage() {
+  const navigate = useNavigate()
   const { data, isLoading } = useQuery({
     queryKey: ["jobs"],
     queryFn: () => api.listJobs(),
     refetchInterval: 5_000,
   })
 
-  if (isLoading) return <div className="text-gray-400">loading…</div>
+  if (isLoading)
+    return <div className="text-sm text-zinc-500">loading…</div>
 
   return (
     <div>
-      <h1 className="mb-4 text-xl font-semibold text-white">Jobs</h1>
+      <div className="mb-6 flex items-baseline justify-between">
+        <div>
+          <h1 className="text-xl font-semibold tracking-tight text-white">
+            Jobs
+          </h1>
+          <p className="mt-0.5 text-sm text-zinc-500">
+            {data?.jobs.length ?? 0} total
+          </p>
+        </div>
+      </div>
+
       {!data || data.jobs.length === 0 ? (
-        <div className="rounded border border-gray-800 bg-gray-900 p-6 text-center text-gray-400">
-          No jobs yet.{" "}
-          <Link to="/jobs/new" className="text-purple-400 underline">
+        <div className="rounded-xl border border-white/[0.06] bg-zinc-950 p-10 text-center">
+          <p className="text-sm text-zinc-400">No jobs yet.</p>
+          <Link
+            to="/jobs/new"
+            className="mt-3 inline-block rounded-md bg-white px-3 py-1.5 text-sm font-medium text-black hover:bg-zinc-200"
+          >
             Create one
           </Link>
-          .
         </div>
       ) : (
-        <table className="w-full overflow-hidden rounded border border-gray-800 bg-gray-900 text-left text-sm">
-          <thead className="bg-gray-950 text-gray-400">
-            <tr>
-              <th className="px-3 py-2">Name</th>
-              <th className="px-3 py-2">Mode</th>
-              <th className="px-3 py-2">Schedule</th>
-              <th className="px-3 py-2">Status</th>
-              <th className="px-3 py-2">Next run</th>
-            </tr>
-          </thead>
-          <tbody>
-            {data.jobs.map((j) => (
-              <tr
-                key={j.id}
-                className="border-t border-gray-800 hover:bg-gray-800"
-              >
-                <td className="px-3 py-2">
-                  <Link
-                    to={`/jobs/${j.id}`}
-                    className="text-white hover:underline"
-                  >
-                    {j.name}
-                  </Link>
-                </td>
-                <td className="px-3 py-2 text-gray-400">{j.mode}</td>
-                <td className="px-3 py-2 font-mono text-xs text-gray-400">
-                  {j.cron ?? fmt(j.runAt)}
-                </td>
-                <td className="px-3 py-2">
-                  <span
-                    className={`rounded px-2 py-0.5 text-xs ${statusColor(j.status)}`}
-                  >
-                    {j.status}
-                  </span>
-                </td>
-                <td className="px-3 py-2 text-gray-400">
-                  {fmt(j.nextRunAt)}
-                </td>
+        <div className="overflow-hidden rounded-xl border border-white/[0.06]">
+          <table className="w-full text-left text-sm">
+            <thead className="bg-white/[0.02] text-xs uppercase tracking-wide text-zinc-500">
+              <tr>
+                <th className="px-4 py-2.5 font-medium">Name</th>
+                <th className="px-4 py-2.5 font-medium">Mode</th>
+                <th className="px-4 py-2.5 font-medium">Schedule</th>
+                <th className="px-4 py-2.5 font-medium">Status</th>
+                <th className="px-4 py-2.5 font-medium">Next run</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody className="divide-y divide-white/[0.04]">
+              {data.jobs.map((j) => (
+                <tr
+                  key={j.id}
+                  onClick={() => navigate(`/jobs/${j.id}`)}
+                  className="cursor-pointer transition-colors hover:bg-white/[0.02]"
+                >
+                  <td className="px-4 py-3 text-white">{j.name}</td>
+                  <td className="px-4 py-3 font-mono text-xs text-zinc-400">
+                    {j.mode}
+                  </td>
+                  <td className="px-4 py-3 font-mono text-xs text-zinc-400">
+                    {j.cron ?? fmt(j.runAt)}
+                  </td>
+                  <td className="px-4 py-3">
+                    <span className="inline-flex items-center gap-1.5 text-xs text-zinc-300">
+                      {statusDot(j.status)}
+                      {j.status}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3 text-xs text-zinc-400">
+                    {fmt(j.nextRunAt)}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
     </div>
   )
