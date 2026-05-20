@@ -54,6 +54,9 @@ export function Shell({
             <Link to="/jobs" className="text-gray-300 hover:text-white">
               Jobs
             </Link>
+            <Link to="/api-ref" className="text-gray-300 hover:text-white">
+              API
+            </Link>
             <Link
               to="/jobs/new"
               className="rounded bg-purple-600 px-3 py-1 text-white hover:bg-purple-700"

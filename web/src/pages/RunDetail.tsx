@@ -1,10 +1,33 @@
 import { useQuery } from "@tanstack/react-query"
 import { Link, useParams } from "react-router-dom"
 
+import { JsonViewer } from "@/components/json-viewer"
+import {
+  LogViewerTerminal,
+  type LogEntry,
+} from "@/components/log-viewer"
 import { api } from "../lib/api"
 
 const fmt = (s: string | null) =>
   s ? new Date(s).toLocaleString() : "—"
+
+const tryParseJson = (s: string | null): unknown | null => {
+  if (!s) return null
+  try {
+    return JSON.parse(s)
+  } catch {
+    return null
+  }
+}
+
+const toEntries = (
+  text: string | null,
+  level: LogEntry["level"],
+): LogEntry[] =>
+  (text ?? "")
+    .split(/\r?\n/)
+    .filter((line, i, arr) => !(i === arr.length - 1 && line === ""))
+    .map((message) => ({ level, message }))
 
 export function RunDetailPage() {
   const { id } = useParams<{ id: string }>()
@@ -15,6 +38,10 @@ export function RunDetailPage() {
   })
 
   if (isLoading || !run) return <div className="text-gray-400">loading…</div>
+
+  const parsedResponse = tryParseJson(run.responseBody)
+  const stdoutEntries = toEntries(run.stdout, "info")
+  const stderrEntries = toEntries(run.stderr, "error")
 
   return (
     <div className="space-y-6">
@@ -37,59 +64,63 @@ export function RunDetailPage() {
       </div>
 
       {run.errorMessage && (
-        <Block label="Error">
-          <pre className="text-sm text-red-300">{run.errorMessage}</pre>
-        </Block>
+        <section>
+          <h2 className="mb-2 text-sm font-medium uppercase tracking-wider text-gray-500">
+            Error
+          </h2>
+          <div className="rounded border border-red-900 bg-red-950 p-3 text-sm text-red-300">
+            {run.errorMessage}
+          </div>
+        </section>
       )}
 
       {run.responseStatus !== null && (
-        <Block label={`Webhook response · ${run.responseStatus}`}>
-          <pre className="max-h-96 overflow-auto text-xs text-gray-300">
-            {run.responseBody ?? "<empty>"}
-          </pre>
-        </Block>
+        <section>
+          <h2 className="mb-2 text-sm font-medium uppercase tracking-wider text-gray-500">
+            Webhook response · HTTP {run.responseStatus}
+          </h2>
+          {parsedResponse !== null ? (
+            <JsonViewer data={parsedResponse as never} rootName="response" />
+          ) : (
+            <pre className="max-h-96 overflow-auto rounded border border-gray-800 bg-gray-950 p-3 text-xs text-gray-300">
+              {run.responseBody || "<empty>"}
+            </pre>
+          )}
+        </section>
       )}
 
-      {(run.stdout || run.stderr || run.exitCode !== null) && (
-        <>
+      {(run.stdout !== null || run.stderr !== null || run.exitCode !== null) && (
+        <section className="space-y-4">
           {run.exitCode !== null && (
-            <Block label={`Bash exit code · ${run.exitCode}`}>
-              <span className="text-xs text-gray-500">
-                Non-zero exit codes mark the run as failed.
+            <div className="text-sm text-gray-400">
+              Bash exit code:{" "}
+              <span
+                className={
+                  run.exitCode === 0 ? "text-green-400" : "text-red-400"
+                }
+              >
+                {run.exitCode}
               </span>
-            </Block>
+            </div>
           )}
-          <Block label="stdout">
-            <pre className="max-h-96 overflow-auto text-xs text-gray-300">
-              {run.stdout || "<empty>"}
-            </pre>
-          </Block>
-          <Block label="stderr">
-            <pre className="max-h-96 overflow-auto text-xs text-yellow-300">
-              {run.stderr || "<empty>"}
-            </pre>
-          </Block>
-        </>
+          {stdoutEntries.length > 0 && (
+            <LogViewerTerminal
+              title="stdout"
+              entries={stdoutEntries}
+              lineNumbers
+              timestamps={false}
+            />
+          )}
+          {stderrEntries.length > 0 && (
+            <LogViewerTerminal
+              title="stderr"
+              entries={stderrEntries}
+              lineNumbers
+              timestamps={false}
+            />
+          )}
+        </section>
       )}
     </div>
-  )
-}
-
-function Block({
-  label,
-  children,
-}: {
-  label: string
-  children: React.ReactNode
-}) {
-  return (
-    <section>
-      <h2 className="mb-2 text-sm font-medium uppercase tracking-wider text-gray-500">
-        {label}
-      </h2>
-      <div className="rounded border border-gray-800 bg-gray-950 p-3">
-        {children}
-      </div>
-    </section>
   )
 }

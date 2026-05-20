@@ -1,6 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { Link, useNavigate, useParams } from "react-router-dom"
 
+import { CronSchedule } from "@/components/cron-schedule"
+import { JsonViewer } from "@/components/json-viewer"
 import { api, type JobRun } from "../lib/api"
 
 const fmt = (s: string | null) =>
@@ -72,9 +74,6 @@ export function JobDetailPage() {
             <span className="rounded bg-gray-800 px-2 py-0.5">
               {job.status}
             </span>
-            <span className="font-mono">
-              {job.cron ?? fmt(job.runAt)}
-            </span>
             <span>next: {fmt(job.nextRunAt)}</span>
           </div>
         </div>
@@ -114,13 +113,38 @@ export function JobDetailPage() {
         </div>
       </div>
 
+      {job.cron && (
+        <section>
+          <h2 className="mb-2 text-sm font-medium uppercase tracking-wider text-gray-500">
+            Schedule
+          </h2>
+          <CronSchedule
+            title={job.cron}
+            expression={job.cron}
+            showNextRuns={5}
+          />
+        </section>
+      )}
+
       <section>
         <h2 className="mb-2 text-sm font-medium uppercase tracking-wider text-gray-500">
           Payload
         </h2>
-        <pre className="overflow-x-auto rounded border border-gray-800 bg-gray-950 p-3 text-xs text-gray-300">
-          {JSON.stringify(job.payload, null, 2)}
-        </pre>
+        <JsonViewer
+          data={job.payload as never}
+          rootName="payload"
+          defaultExpanded={true}
+        />
+      </section>
+
+      <section>
+        <h2 className="mb-2 text-sm font-medium uppercase tracking-wider text-gray-500">
+          Retry policy
+        </h2>
+        <JsonViewer
+          data={job.retryPolicy as never}
+          rootName="retryPolicy"
+        />
       </section>
 
       <section>
