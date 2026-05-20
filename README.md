@@ -1,5 +1,7 @@
 # Chronos
 
+![chronos](/public/intro.png)
+
 A distributed job scheduler. Submit one-time or recurring jobs that fire as **webhook calls** or **sandboxed bash scripts**, with durable execution, automatic retries, full per-run logs, and in-app notifications when retries are exhausted.
 
 Built for the Airtribe Backend Engineering Launchpad case study.
