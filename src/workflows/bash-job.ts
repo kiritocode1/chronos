@@ -3,6 +3,21 @@ import * as Workflow from "@effect/workflow/Workflow"
 import { Duration, Effect, Schedule, Schema } from "effect"
 import { Bash } from "just-bash"
 
+const envInt = (key: string, fallback: number) => {
+  const raw = Bun.env[key]
+  if (!raw) return fallback
+  const n = Number(raw)
+  return Number.isFinite(n) && n > 0 ? n : fallback
+}
+
+const executionLimits = {
+  maxCommandCount: envInt("BASH_MAX_COMMANDS", 1_000_000),
+  maxLoopIterations: envInt("BASH_MAX_LOOPS", 1_000_000),
+  maxAwkIterations: envInt("BASH_MAX_LOOPS", 1_000_000),
+  maxJqIterations: envInt("BASH_MAX_LOOPS", 1_000_000),
+  maxSedIterations: envInt("BASH_MAX_LOOPS", 1_000_000),
+}
+
 import { NotificationsRepo } from "../notifications/repo.ts"
 import { JobRunsRepo } from "../runs/repo.ts"
 import { RetryPolicy } from "../jobs/schema.ts"
@@ -65,6 +80,7 @@ export const executeBashJob = (
         const bash = new Bash({
           env: payload.env,
           network: { allowedUrlPrefixes: [...payload.allowedUrls] },
+          executionLimits,
         })
         const controller = new AbortController()
         const timer = setTimeout(

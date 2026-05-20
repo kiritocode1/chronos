@@ -210,6 +210,7 @@ These are the calls worth flagging in a code review. Deeper reasoning lives in [
 - **Cluster owns its schema.** Don't try to manage `cluster_*` tables with `drizzle-kit`. The `tablesFilter` in `drizzle.config.ts` scopes drizzle-kit to our owned tables only (`jobs`, `job_runs`, `notifications`).
 - **Better Auth runs its config under `process.env`, not `Bun.env`.** Their CLI uses jiti (Node-based) to load the config file, and using `Bun.env` would crash the migrate command.
 - **just-bash sandboxing.** Bash jobs run in an in-process virtual filesystem with **no network access by default**. To allow specific URLs, pass `allowedUrls: ["https://api.example.com"]` in the bash payload. For production multi-tenant, add SSRF blocking for private IP ranges plus AWS metadata endpoint.
+- **just-bash execution limits.** The Bash sandbox has runtime safety caps to prevent runaway compute. We raise them above the library defaults (10k commands / loop iterations) to 1,000,000 each, tunable via `BASH_MAX_COMMANDS` and `BASH_MAX_LOOPS` env vars. If you see `bash: too many commands executed (>X)`, bump those.
 - **`RUNNER_PORT` must be unique per process on a shared host.** Two nodes booting with the same runner port will fail `bind()` on the second one. Loud and immediate, not silent corruption.
 
 ## Repository layout
