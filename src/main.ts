@@ -1,5 +1,6 @@
 import * as ClusterWorkflowEngine from "@effect/cluster/ClusterWorkflowEngine"
-import * as SingleRunner from "@effect/cluster/SingleRunner"
+import { RunnerAddress } from "@effect/cluster/RunnerAddress"
+import * as Singleton from "@effect/cluster/Singleton"
 import * as SqlClient from "@effect/sql/SqlClient"
 import {
   HttpRouter,
@@ -7,8 +8,9 @@ import {
   HttpServerResponse,
 } from "@effect/platform"
 import { BunHttpServer, BunRuntime } from "@effect/platform-bun"
+import * as BunClusterSocket from "@effect/platform-bun/BunClusterSocket"
 import { WorkflowEngine } from "@effect/workflow/WorkflowEngine"
-import { Effect, Layer } from "effect"
+import { Effect, Layer, Option } from "effect"
 
 import { betterAuthApp } from "./auth/http.ts"
 import { Auth, AuthLive } from "./auth/service.ts"
@@ -62,24 +64,44 @@ const ServerLive = HttpServer.serve(router).pipe(
   ),
 )
 
+const runnerHost = Bun.env.RUNNER_HOST ?? "127.0.0.1"
+const runnerPort = Number(Bun.env.RUNNER_PORT ?? 34430)
+
+const ShardingLive = BunClusterSocket.layer({
+  storage: "sql",
+  shardingConfig: {
+    runnerAddress: Option.some(
+      new RunnerAddress({ host: runnerHost, port: runnerPort }),
+    ),
+  },
+})
+
 const ClusterLive = ClusterWorkflowEngine.layer.pipe(
-  Layer.provide(SingleRunner.layer({ runnerStorage: "sql" })),
+  Layer.provideMerge(ShardingLive),
 )
 
-const AppLive = Layer.mergeAll(
+const TickerSingleton = Singleton.make("chronos-ticker", tickerLoop)
+
+const ReposLive = Layer.mergeAll(
   AuthLive,
   JobsRepoLive,
   JobRunsRepoLive,
   NotificationsRepoLive,
-  ClusterLive,
-).pipe(Layer.provideMerge(DbLive), Layer.provideMerge(SqlLive))
+)
+
+const AppLive = TickerSingleton.pipe(
+  Layer.provideMerge(ReposLive),
+  Layer.provideMerge(ClusterLive),
+  Layer.provideMerge(DbLive),
+  Layer.provideMerge(SqlLive),
+)
 
 const main = Effect.gen(function* () {
   const engine = yield* WorkflowEngine
   yield* engine.register(WebhookJob, executeWebhookJob)
   yield* engine.register(BashJob, executeBashJob)
-  yield* Effect.forkDaemon(tickerLoop)
   return yield* Layer.launch(ServerLive)
 }).pipe(Effect.scoped, Effect.provide(AppLive))
 
+// in god we trust. 
 BunRuntime.runMain(main)
