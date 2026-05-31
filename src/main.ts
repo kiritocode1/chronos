@@ -21,6 +21,7 @@ import { notificationsRoutes } from "./notifications/http.ts"
 import { NotificationsRepoLive } from "./notifications/repo.ts"
 import { runsRoutes } from "./runs/http.ts"
 import { JobRunsRepoLive } from "./runs/repo.ts"
+import { spaRoutes } from "./static/http.ts"
 import { tickerLoop } from "./ticker/ticker.ts"
 import { BashJob, executeBashJob } from "./workflows/bash-job.ts"
 import { executeWebhookJob, WebhookJob } from "./workflows/webhook-job.ts"
@@ -56,6 +57,8 @@ const router = baseRoutes.pipe(
   HttpRouter.concat(jobsRoutes),
   HttpRouter.concat(runsRoutes),
   HttpRouter.concat(notificationsRoutes),
+  // Catch-all SPA fallback — must stay last so it can't shadow the API.
+  HttpRouter.concat(spaRoutes),
 )
 
 const ServerLive = HttpServer.serve(router).pipe(
