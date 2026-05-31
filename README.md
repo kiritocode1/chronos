@@ -264,3 +264,5 @@ bun run build        # tsc -b && vite build
 ## License
 
 MIT
+
+## Submissions by [Aryan Kathawale](https:tldr.aryank.space)
